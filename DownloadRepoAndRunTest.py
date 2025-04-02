@@ -2,6 +2,8 @@ import subprocess
 import sys
 import os
 import shutil  # Import shutil for file operations
+import matplotlib.pyplot as plt  # Import matplotlib for graphing
+import pandas as pd  # Import pandas for data processing
 
 # Define the repository URL and the desired directory name
 REPO_URL = "https://github.com/DeepakRajendrakumaran/runtime.git"
@@ -139,6 +141,59 @@ def run_superpmi(repo_root, destination_path):
     print(f"Running SuperPMI command: {' '.join(command)}")
     run_command(command, cwd=repo_root)
 
+def create_visual_representation(diff_summary_path):
+    """
+    Reads the diff_short_summary.md file and creates a graph showing
+    Diff Instruction Count as the y-axis.
+    """
+    if not os.path.exists(diff_summary_path):
+        print(f"File '{diff_summary_path}' does not exist. Ensure SuperPMI has generated the file.")
+        sys.exit(1)
+
+    print(f"Reading diff summary from '{diff_summary_path}'...")
+    try:
+        # Read the markdown file and extract relevant data
+        with open(diff_summary_path, "r") as file:
+            lines = file.readlines()
+
+        # Extract table data (assumes the table starts and ends with '|')
+        table_data = [line.strip() for line in lines if line.startswith("|") and not line.startswith("|---")]
+
+        # Parse the table into a list of dictionaries
+        headers = [header.strip() for header in table_data[0].split("|")[1:-1]]
+        data = [
+            dict(zip(headers, [value.strip() for value in row.split("|")[1:-1]]))
+            for row in table_data[1:]
+        ]
+
+        # Convert the data into a pandas DataFrame
+        df = pd.DataFrame(data)
+
+        # Convert relevant columns to numeric
+        df["Diff Instruction Count"] = pd.to_numeric(df["Diff Instruction Count"], errors="coerce")
+        df["Method Name"] = df["Method Name"].astype(str)
+
+        # Plot the data
+        plt.figure(figsize=(10, 6))
+        plt.bar(df["Method Name"], df["Diff Instruction Count"], color="skyblue")
+        plt.xlabel("Method Name")
+        plt.ylabel("Diff Instruction Count")
+        plt.title("Diff Instruction Count by Method")
+        plt.xticks(rotation=90, fontsize=8)
+        plt.tight_layout()
+
+        # Save the graph as an image
+        graph_path = os.path.join(os.path.dirname(diff_summary_path), "diff_instruction_count_graph.png")
+        plt.savefig(graph_path)
+        print(f"Graph saved at '{graph_path}'.")
+
+        # Show the graph
+        plt.show()
+
+    except Exception as e:
+        print(f"Failed to create visual representation: {e}")
+        sys.exit(1)
+
 if __name__ == "__main__":
     print("Starting the script...")
 
@@ -211,5 +266,11 @@ if __name__ == "__main__":
 
     # Run the SuperPMI command
     run_superpmi(repo_root, run_results_path)
+
+    # Path to the diff_short_summary.md file
+    diff_summary_path = os.path.join(repo_root, "artifacts", "spmi", "diff_short_summary.md")
+
+    # Create a visual representation of the diff summary
+    create_visual_representation(diff_summary_path)
 
     print("Script completed successfully.")
