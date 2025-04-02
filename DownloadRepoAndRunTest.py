@@ -79,10 +79,10 @@ def delete_directory_if_exists(path):
             print(f"Failed to delete directory '{path}': {e}")
             sys.exit(1)
 
-def copy_core_root(repo_root, destination_name):
+def copy_core_root(repo_root, destination_root, destination_name):
     # Define the source and destination paths
     core_root_path = os.path.join(repo_root, "artifacts", "tests", "coreclr", "windows.x64.Checked", "Tests", "Core_Root")
-    destination_path = os.path.join(repo_root, destination_name)
+    destination_path = os.path.join(destination_root, destination_name)
 
     # Delete the destination directory if it exists
     delete_directory_if_exists(destination_path)
@@ -124,8 +124,8 @@ def run_superpmi(repo_root, destination_path):
     delete_directory_if_exists(spmi_path)
 
     details_csv_path = os.path.join(destination_path, "diffAPX_details.csv")
-    base_jit_path = os.path.join(repo_root, "base", "clrjit.dll")
-    diff_jit_path = os.path.join(repo_root, "diffAPX", "clrjit.dll")
+    base_jit_path = os.path.join(destination_path, "base", "clrjit.dll")
+    diff_jit_path = os.path.join(destination_path, "diffAPX", "clrjit.dll")
     superpmi_script = os.path.join(repo_root, "src", "coreclr", "scripts", "superpmi.py")
 
     command = [
@@ -201,10 +201,10 @@ if __name__ == "__main__":
     run_command([tests_build_cmd_path, "x64", "Checked", "generatelayoutonly"], cwd=repo_root)
 
     # Copy Core_Root to the results folder and rename it to 'base'
-    copy_core_root(run_results_path, "base")
+    copy_core_root(repo_root, run_results_path, "base")
 
     # Copy Core_Root to the results folder and rename it to 'diffAPX'
-    copy_core_root(run_results_path, "diffAPX")
+    copy_core_root(repo_root, run_results_path, "diffAPX")
 
     # Set up jitutils and run bootstrap.cmd
     setup_jitutils()
