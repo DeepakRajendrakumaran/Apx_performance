@@ -117,18 +117,20 @@ def setup_jitutils():
         print(f"bootstrap.cmd not found in '{jitutils_path}'. Ensure the repository is cloned correctly.")
         sys.exit(1)
 
-def run_superpmi(repo_root):
+def run_superpmi(repo_root, destination_path):
     """Run the superpmi.py command."""
     # Delete the artifacts\spmi directory if it exists
     spmi_path = os.path.join(repo_root, "artifacts", "spmi")
     delete_directory_if_exists(spmi_path)
 
+    details_csv_path = os.path.join(destination_path, "diffAPX_details.csv")
     base_jit_path = os.path.join(repo_root, "base", "clrjit.dll")
     diff_jit_path = os.path.join(repo_root, "diffAPX", "clrjit.dll")
     superpmi_script = os.path.join(repo_root, "src", "coreclr", "scripts", "superpmi.py")
 
     command = [
         "python", superpmi_script, "asmdiffs",
+        "-details", details_csv_path,
         "-base_jit_path", base_jit_path,
         "-diff_jit_path", diff_jit_path,
         "-diff_jit_option", "JitBypassApxCheck=1"
@@ -139,6 +141,36 @@ def run_superpmi(repo_root):
 
 if __name__ == "__main__":
     print("Starting the script...")
+
+    # Create a new folder 'runResults' parallel to the 'runtime' repository
+    run_results_path = os.path.abspath(os.path.join(DIR_NAME, "..", "runResults"))
+    if os.path.exists(run_results_path):
+        print(f"'runResults' folder already exists at: {run_results_path}. Deleting its contents...")
+        try:
+            # Delete all contents of the folder
+            for item in os.listdir(run_results_path):
+                item_path = os.path.join(run_results_path, item)
+                if os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
+                else:
+                    os.remove(item_path)
+            print(f"All contents of 'runResults' folder deleted successfully.")
+        except Exception as e:
+            print(f"Failed to delete contents of 'runResults' folder: {e}")
+            sys.exit(1)
+    else:
+        print(f"'runResults' folder does not exist. Creating it at: {run_results_path}")
+        try:
+            os.makedirs(run_results_path)
+            print(f"'runResults' folder created successfully.")
+        except Exception as e:
+            print(f"Failed to create 'runResults' folder: {e}")
+            sys.exit(1)
+
+    # Add jitutils\bin to the PATH environment variable
+    jitutils_bin_path = os.path.abspath(os.path.join(JITUTILS_DIR_NAME, "bin"))
+    os.environ["PATH"] += os.pathsep + jitutils_bin_path
+    print(f"Added '{jitutils_bin_path}' to PATH.")
 
     # Get the absolute path to the repository directory
     repo_root = os.path.abspath(DIR_NAME)
@@ -160,12 +192,6 @@ if __name__ == "__main__":
     print(f"Build script path: {build_cmd_path}")
     print(f"Tests build script path: {tests_build_cmd_path}")
 
-    # Run the build commands using the full paths
-    run_command([build_cmd_path, "clr+libs", "-rc", "checked", "-lc", "Release"], cwd=repo_root)
-    run_command([tests_build_cmd_path, "x64", "Checked", "generatelayoutonly"], cwd=repo_root)
-
-    # Copy Core_Root to the root of the repository and rename it to 'base'
-    copy_core_root(repo_root, "base")
 
     # Check out the specified remote branch
     checkout_branch(BRANCH_NAME, cwd=repo_root)
@@ -174,13 +200,16 @@ if __name__ == "__main__":
     run_command([build_cmd_path, "clr+libs", "-rc", "checked", "-lc", "Release"], cwd=repo_root)
     run_command([tests_build_cmd_path, "x64", "Checked", "generatelayoutonly"], cwd=repo_root)
 
-    # Copy Core_Root to the root of the repository and rename it to 'diffAPX'
-    copy_core_root(repo_root, "diffAPX")
+    # Copy Core_Root to the results folder and rename it to 'base'
+    copy_core_root(run_results_path, "base")
+
+    # Copy Core_Root to the results folder and rename it to 'diffAPX'
+    copy_core_root(run_results_path, "diffAPX")
 
     # Set up jitutils and run bootstrap.cmd
     setup_jitutils()
 
     # Run the SuperPMI command
-    run_superpmi(repo_root)
+    run_superpmi(repo_root, run_results_path)
 
     print("Script completed successfully.")
