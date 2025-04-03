@@ -4,6 +4,7 @@ import os
 import shutil  # Import shutil for file operations
 import matplotlib.pyplot as plt  # Import matplotlib for graphing
 import pandas as pd  # Import pandas for data processing
+import json  # Import json for reading JSON files
 
 
 #python C:\deepak\Apx_performance\runtime\src\coreclr\scripts\superpmi.py asmdiffs -details C:\deepak\Apx_performance\runResults\diffAPX_details.csv -base_jit_path C:\deepak\Apx_performance\runResults\base\clrjit.dll -diff_jit_path C:\deepak\Apx_performance\runResults\diffAPX\clrjit.dll -diff_jit_option JitBypassApxCheck=1
@@ -146,8 +147,8 @@ def run_superpmi(repo_root, destination_path):
 
 def create_visual_representation(diff_summary_path):
     """
-    Reads the diff_short_summary.md file and creates a graph showing
-    % Instruction Count Difference for each benchmark under the Collection column.
+    Reads the diff_summary.json file and creates a graph comparing 'Instruction Count'
+    under 'overall' with the first value as the base and the others as differences.
     """
     if not os.path.exists(diff_summary_path):
         print(f"File '{diff_summary_path}' does not exist. Ensure SuperPMI has generated the file.")
@@ -155,60 +156,44 @@ def create_visual_representation(diff_summary_path):
 
     print(f"Reading diff summary from '{diff_summary_path}'...")
     try:
-        # Read the markdown file and extract relevant data
+        # Read the JSON file
         with open(diff_summary_path, "r") as file:
-            lines = file.readlines()
-        print(f"Successfully read {len(lines)} lines from '{diff_summary_path}'.")
+            data = json.load(file)
+        print(f"Successfully read data from '{diff_summary_path}'.")
 
-        # Extract table data (assumes the table starts and ends with '|')
-        table_data = [line.strip() for line in lines if line.startswith("|") and not line.startswith("|---")]
-        print(f"Extracted {len(table_data)} rows of table data.")
-
-        if not table_data:
-            print("No table data found in the file. Exiting.")
+        # Extract 'overall' data
+        overall_data = data.get("overall", [])
+        if not overall_data:
+            print("No 'overall' data found in the JSON file. Exiting.")
             sys.exit(1)
 
-        # Parse the table into a list of dictionaries
-        headers = [header.strip() for header in table_data[0].split("|")[1:-1]]
-        print(f"Extracted headers: {headers}")
+        # Extract 'Instruction Count' values
+        instruction_counts = [entry.get("Instruction Count", 0) for entry in overall_data]
+        labels = [entry.get("Name", "Unnamed") for entry in overall_data]
 
-        data = [
-            dict(zip(headers, [value.strip() for value in row.split("|")[1:-1]]))
-            for row in table_data[1:]
-        ]
-        print(f"Parsed {len(data)} rows of data into dictionaries.")
-
-        # Convert the data into a pandas DataFrame
-        df = pd.DataFrame(data)
-        print("Converted data into a pandas DataFrame:")
-        print(df.head())
-
-        # Ensure the required columns exist
-        if "Collection" not in df.columns or "% Instruction Count Difference" not in df.columns:
-            print("Required columns 'Collection' or '% Instruction Count Difference' are missing in the data.")
+        if not instruction_counts or len(instruction_counts) < 2:
+            print("Not enough data to create a comparison graph. Exiting.")
             sys.exit(1)
 
-        # Convert relevant columns to appropriate data types
-        print("Converting '% Instruction Count Difference' to numeric...")
-        df["% Instruction Count Difference"] = pd.to_numeric(df["% Instruction Count Difference"], errors="coerce")
-        print("Converting 'Collection' to string...")
-        df["Collection"] = df["Collection"].astype(str)
+        # Use the first value as the base
+        base_value = instruction_counts[0]
+        diff_values = [count - base_value for count in instruction_counts]
 
-        print("Data after conversion:")
-        print(df.head())
+        print("Base Instruction Count:", base_value)
+        print("Instruction Count Differences:", diff_values)
 
-        # Plot the data
+        # Create the bar graph
         print("Creating the bar graph...")
         plt.figure(figsize=(12, 8))
-        plt.bar(df["Collection"], df["% Instruction Count Difference"], color="skyblue")
-        plt.xlabel("Collection")
-        plt.ylabel("% Instruction Count Difference")
-        plt.title("% Instruction Count Difference by Collection")
+        plt.bar(labels, diff_values, color="skyblue")
+        plt.xlabel("Name")
+        plt.ylabel("Instruction Count Difference")
+        plt.title("Instruction Count Difference Compared to Base")
         plt.xticks(rotation=45, fontsize=10)
         plt.tight_layout()
 
         # Save the graph as an image
-        graph_path = os.path.join(os.path.dirname(diff_summary_path), "instruction_count_difference_graph.png")
+        graph_path = os.path.join(os.path.dirname(diff_summary_path), "instruction_count_comparison_graph.png")
         plt.savefig(graph_path)
         print(f"Graph saved at '{graph_path}'.")
 
