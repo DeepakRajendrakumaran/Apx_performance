@@ -5,6 +5,8 @@ import shutil  # Import shutil for file operations
 import matplotlib.pyplot as plt  # Import matplotlib for graphing
 import pandas as pd  # Import pandas for data processing
 
+
+#python C:\deepak\Apx_performance\runtime\src\coreclr\scripts\superpmi.py asmdiffs -details C:\deepak\Apx_performance\runResults\diffAPX_details.csv -base_jit_path C:\deepak\Apx_performance\runResults\base\clrjit.dll -diff_jit_path C:\deepak\Apx_performance\runResults\diffAPX\clrjit.dll -diff_jit_option JitBypassApxCheck=1
 # Define the repository URL and the desired directory name
 REPO_URL = "https://github.com/DeepakRajendrakumaran/runtime.git"
 DIR_NAME = "runtime"
@@ -135,7 +137,8 @@ def run_superpmi(repo_root, destination_path):
         "-details", details_csv_path,
         "-base_jit_path", base_jit_path,
         "-diff_jit_path", diff_jit_path,
-        "-diff_jit_option", "JitBypassApxCheck=1"
+        "-diff_jit_option", "JitBypassApxCheck=1",
+        "-filter", "libraries_tests.run"
     ]
 
     print(f"Running SuperPMI command: {' '.join(command)}")
@@ -144,7 +147,7 @@ def run_superpmi(repo_root, destination_path):
 def create_visual_representation(diff_summary_path):
     """
     Reads the diff_short_summary.md file and creates a graph showing
-    Diff Instruction Count as the y-axis.
+    % Instruction Count Difference for each benchmark under the Collection column.
     """
     if not os.path.exists(diff_summary_path):
         print(f"File '{diff_summary_path}' does not exist. Ensure SuperPMI has generated the file.")
@@ -180,27 +183,32 @@ def create_visual_representation(diff_summary_path):
         print("Converted data into a pandas DataFrame:")
         print(df.head())
 
-        # Convert relevant columns to numeric
-        print("Converting 'Diff Instruction Count' to numeric...")
-        df["Diff Instruction Count"] = pd.to_numeric(df["Diff Instruction Count"], errors="coerce")
-        print("Converting 'Method Name' to string...")
-        df["Method Name"] = df["Method Name"].astype(str)
+        # Ensure the required columns exist
+        if "Collection" not in df.columns or "% Instruction Count Difference" not in df.columns:
+            print("Required columns 'Collection' or '% Instruction Count Difference' are missing in the data.")
+            sys.exit(1)
+
+        # Convert relevant columns to appropriate data types
+        print("Converting '% Instruction Count Difference' to numeric...")
+        df["% Instruction Count Difference"] = pd.to_numeric(df["% Instruction Count Difference"], errors="coerce")
+        print("Converting 'Collection' to string...")
+        df["Collection"] = df["Collection"].astype(str)
 
         print("Data after conversion:")
         print(df.head())
 
         # Plot the data
         print("Creating the bar graph...")
-        plt.figure(figsize=(10, 6))
-        plt.bar(df["Method Name"], df["Diff Instruction Count"], color="skyblue")
-        plt.xlabel("Method Name")
-        plt.ylabel("Diff Instruction Count")
-        plt.title("Diff Instruction Count by Method")
-        plt.xticks(rotation=90, fontsize=8)
+        plt.figure(figsize=(12, 8))
+        plt.bar(df["Collection"], df["% Instruction Count Difference"], color="skyblue")
+        plt.xlabel("Collection")
+        plt.ylabel("% Instruction Count Difference")
+        plt.title("% Instruction Count Difference by Collection")
+        plt.xticks(rotation=45, fontsize=10)
         plt.tight_layout()
 
         # Save the graph as an image
-        graph_path = os.path.join(os.path.dirname(diff_summary_path), "diff_instruction_count_graph.png")
+        graph_path = os.path.join(os.path.dirname(diff_summary_path), "instruction_count_difference_graph.png")
         plt.savefig(graph_path)
         print(f"Graph saved at '{graph_path}'.")
 
