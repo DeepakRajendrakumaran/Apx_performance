@@ -155,25 +155,42 @@ def create_visual_representation(diff_summary_path):
         # Read the markdown file and extract relevant data
         with open(diff_summary_path, "r") as file:
             lines = file.readlines()
+        print(f"Successfully read {len(lines)} lines from '{diff_summary_path}'.")
 
         # Extract table data (assumes the table starts and ends with '|')
         table_data = [line.strip() for line in lines if line.startswith("|") and not line.startswith("|---")]
+        print(f"Extracted {len(table_data)} rows of table data.")
+
+        if not table_data:
+            print("No table data found in the file. Exiting.")
+            sys.exit(1)
 
         # Parse the table into a list of dictionaries
         headers = [header.strip() for header in table_data[0].split("|")[1:-1]]
+        print(f"Extracted headers: {headers}")
+
         data = [
             dict(zip(headers, [value.strip() for value in row.split("|")[1:-1]]))
             for row in table_data[1:]
         ]
+        print(f"Parsed {len(data)} rows of data into dictionaries.")
 
         # Convert the data into a pandas DataFrame
         df = pd.DataFrame(data)
+        print("Converted data into a pandas DataFrame:")
+        print(df.head())
 
         # Convert relevant columns to numeric
+        print("Converting 'Diff Instruction Count' to numeric...")
         df["Diff Instruction Count"] = pd.to_numeric(df["Diff Instruction Count"], errors="coerce")
+        print("Converting 'Method Name' to string...")
         df["Method Name"] = df["Method Name"].astype(str)
 
+        print("Data after conversion:")
+        print(df.head())
+
         # Plot the data
+        print("Creating the bar graph...")
         plt.figure(figsize=(10, 6))
         plt.bar(df["Method Name"], df["Diff Instruction Count"], color="skyblue")
         plt.xlabel("Method Name")
@@ -188,6 +205,7 @@ def create_visual_representation(diff_summary_path):
         print(f"Graph saved at '{graph_path}'.")
 
         # Show the graph
+        print("Displaying the graph...")
         plt.show()
 
     except Exception as e:
