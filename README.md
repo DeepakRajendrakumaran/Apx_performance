@@ -36,8 +36,8 @@ The script requires the following Python libraries:
 - `pandas`: For processing tabular data.
 
 Install these dependencies using `pip`:
-```bash
-pip install matplotlib pandas
+
+`pip install matplotlib pandas`
 
 Repository Structure
 DownloadRepoAndRunTest.py: The main script to automate the process.
@@ -52,19 +52,19 @@ The script will:
 
 Clone the runtime repository.
 Build the runtime and tests.
-Run SuperPMI to generate diff_short_summary.md.
+Run SuperPMI to generate `diff_short_summary.md`.
 Create a graph showing "Diff Instruction Count" by method.
 Results:
 
 The runResults folder will contain:
-base/: The baseline build.
-diffAPX/: The modified build.
-diff_instruction_count_graph.png: A graph visualizing the results.
+`base/`: The baseline build.
+`diffAPX/`: The modified build.
+`diff_instruction_count_graph.png`: A graph visualizing the results.
 Troubleshooting
 pip is not recognized
 Ensure Python and Pip are added to your system's PATH. Refer to the Python installation guide.
 
-SSL: CERTIFICATE_VERIFY_FAILED
+`SSL: CERTIFICATE_VERIFY_FAILED`
 Run the following command to bypass SSL verification:
 
 Missing Build Tools
