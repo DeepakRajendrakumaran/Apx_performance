@@ -122,28 +122,39 @@ def setup_jitutils():
         print(f"bootstrap.cmd not found in '{jitutils_path}'. Ensure the repository is cloned correctly.")
         sys.exit(1)
 
-def run_superpmi(repo_root, destination_path):
-    """Run the superpmi.py command."""
+def run_superpmi(repo_root, destination_path, diff_jit_options):
+    """Run the superpmi.py command with specified diff_jit_options and dynamically name details_csv_path."""
     # Delete the artifacts\spmi directory if it exists
     spmi_path = os.path.join(repo_root, "artifacts", "spmi")
     delete_directory_if_exists(spmi_path)
 
-    details_csv_path = os.path.join(destination_path, "diffAPX_details.csv")
+    # Create a unique name for the details CSV file based on diff_jit_options
+    options_suffix = "_".join(option.replace("=", "_") for option in diff_jit_options)
+    details_csv_path = os.path.join(destination_path, f"diffAPX_details_{options_suffix}.csv")
+
     base_jit_path = os.path.join(destination_path, "base", "clrjit.dll")
     diff_jit_path = os.path.join(destination_path, "diffAPX", "clrjit.dll")
     superpmi_script = os.path.join(repo_root, "src", "coreclr", "scripts", "superpmi.py")
 
+    # Build the command
     command = [
         "python", superpmi_script, "asmdiffs",
         "-details", details_csv_path,
         "-base_jit_path", base_jit_path,
         "-diff_jit_path", diff_jit_path,
-        "-diff_jit_option", "JitBypassApxCheck=1",
-        "-filter", "libraries_tests.run"
     ]
+
+    # Add all diff_jit_options to the command
+    for option in diff_jit_options:
+        command.extend(["-diff_jit_option", option])
+
+    # Add the filter
+    # command.extend(["-filter", "libraries_tests.run"])
 
     print(f"Running SuperPMI command: {' '.join(command)}")
     run_command(command, cwd=repo_root)
+
+    return details_csv_path  # Return the dynamically created path
 
 def create_visual_representation(diff_csv_path):
     """
@@ -265,12 +276,17 @@ if __name__ == "__main__":
     setup_jitutils()
 
     # Run the SuperPMI command
-    run_superpmi(repo_root, run_results_path)
+    diff_jit_options = ["JitBypassApxCheck=1"]
+    details_csv_path = run_superpmi(
+        repo_root,
+        run_results_path,
+        diff_jit_options
+    )
 
-    # Path to the diff_short_summary.md file
-    diff_summary_path = os.path.join(run_results_path, "diffAPX_details.csv")
+    # Use the dynamically created details_csv_path for further processing
+    create_visual_representation(details_csv_path)
 
-    # Create a visual representation of the diff summary
-    create_visual_representation(diff_summary_path)
+
+    #diff_jit_options2 = ["JitBypassApxCheck=1", "AnotherOption=2"]
 
     print("Script completed successfully.")
