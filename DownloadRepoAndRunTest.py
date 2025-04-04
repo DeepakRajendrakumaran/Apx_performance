@@ -160,18 +160,22 @@ def create_visual_representation(diff_csv_path):
         print(f"Successfully read data from '{diff_csv_path}'.")
 
         # Check if required columns exist
-        if 'Name' not in data.columns or 'Instruction Count Difference' not in data.columns:
-            print("Required columns ('Name', 'Instruction Count Difference') are missing in the CSV file.")
+        if 'Collection' not in data.columns:
+            print("Required column ('Name') missing in the CSV file.")
+            sys.exit(1)
+
+        if 'Instruction Count Difference' not in data.columns:
+            print("Required columns ('Instruction Count Difference') is missing in the CSV file.")
             sys.exit(1)
 
         # Extract data for plotting
-        labels = data['Name']
+        labels = data['Collection'].str.split('.').str[0]  # Truncate labels until the first period
         instruction_count_diff = data['Instruction Count Difference']
 
         print("Creating the bar graph...")
         plt.figure(figsize=(12, 8))
         plt.bar(labels, instruction_count_diff, color="skyblue")
-        plt.xlabel("Name")
+        plt.xlabel("Collection")
         plt.ylabel("Instruction Count Difference")
         plt.title("Instruction Count Difference")
         plt.xticks(rotation=45, fontsize=10)
