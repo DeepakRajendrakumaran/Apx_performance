@@ -160,18 +160,22 @@ def create_visual_representation(diff_csv_path):
         print(f"Successfully read data from '{diff_csv_path}'.")
 
         # Check if required columns exist
-        if 'Name' not in data.columns or 'Instruction Count Difference' not in data.columns:
-            print("Required columns ('Name', 'Instruction Count Difference') are missing in the CSV file.")
+        if 'Collection' not in data.columns:
+            print("Required column ('Name') missing in the CSV file.")
+            sys.exit(1)
+
+        if 'Instruction Count Difference' not in data.columns:
+            print("Required columns ('Instruction Count Difference') is missing in the CSV file.")
             sys.exit(1)
 
         # Extract data for plotting
-        labels = data['Name']
+        labels = data['Collection'].str.split('.').str[0]  # Truncate labels until the first period
         instruction_count_diff = data['Instruction Count Difference']
 
         print("Creating the bar graph...")
         plt.figure(figsize=(12, 8))
         plt.bar(labels, instruction_count_diff, color="skyblue")
-        plt.xlabel("Name")
+        plt.xlabel("Collection")
         plt.ylabel("Instruction Count Difference")
         plt.title("Instruction Count Difference")
         plt.xticks(rotation=45, fontsize=10)
@@ -195,74 +199,7 @@ if __name__ == "__main__":
 
     # Create a new folder 'runResults' parallel to the 'runtime' repository
     run_results_path = os.path.abspath(os.path.join(DIR_NAME, "..", "runResults"))
-    if os.path.exists(run_results_path):
-        print(f"'runResults' folder already exists at: {run_results_path}. Deleting its contents...")
-        try:
-            # Delete all contents of the folder
-            for item in os.listdir(run_results_path):
-                item_path = os.path.join(run_results_path, item)
-                if os.path.isdir(item_path):
-                    shutil.rmtree(item_path)
-                else:
-                    os.remove(item_path)
-            print(f"All contents of 'runResults' folder deleted successfully.")
-        except Exception as e:
-            print(f"Failed to delete contents of 'runResults' folder: {e}")
-            sys.exit(1)
-    else:
-        print(f"'runResults' folder does not exist. Creating it at: {run_results_path}")
-        try:
-            os.makedirs(run_results_path)
-            print(f"'runResults' folder created successfully.")
-        except Exception as e:
-            print(f"Failed to create 'runResults' folder: {e}")
-            sys.exit(1)
-
-    # Add jitutils\bin to the PATH environment variable
-    jitutils_bin_path = os.path.abspath(os.path.join(JITUTILS_DIR_NAME, "bin"))
-    os.environ["PATH"] += os.pathsep + jitutils_bin_path
-    print(f"Added '{jitutils_bin_path}' to PATH.")
-
-    # Get the absolute path to the repository directory
-    repo_root = os.path.abspath(DIR_NAME)
-    print(f"Repository root path: {repo_root}")
-
-    # Check if the repository directory already exists
-    if os.path.exists(repo_root):
-        print(f"Directory '{repo_root}' already exists. Skipping cloning step.")
-    else:
-        # Clone the repository
-        clone_repo(REPO_URL, DIR_NAME)
-
-    # Switch to the main branch
-    switch_to_main(repo_root)
-
-    # Construct the full paths to the build scripts
-    build_cmd_path = os.path.join(repo_root, "build.cmd")
-    tests_build_cmd_path = os.path.join(repo_root, "src", "tests", "build.cmd")
-    print(f"Build script path: {build_cmd_path}")
-    print(f"Tests build script path: {tests_build_cmd_path}")
-
-
-    # Check out the specified remote branch
-    checkout_branch(BRANCH_NAME, cwd=repo_root)
-
-    # Run the build commands again after checking out APX_icount
-    run_command([build_cmd_path, "clr+libs", "-rc", "checked", "-lc", "Release"], cwd=repo_root)
-    run_command([tests_build_cmd_path, "x64", "Checked", "generatelayoutonly"], cwd=repo_root)
-
-    # Copy Core_Root to the results folder and rename it to 'base'
-    copy_core_root(repo_root, run_results_path, "base")
-
-    # Copy Core_Root to the results folder and rename it to 'diffAPX'
-    copy_core_root(repo_root, run_results_path, "diffAPX")
-
-    # Set up jitutils and run bootstrap.cmd
-    setup_jitutils()
-
-    # Run the SuperPMI command
-    run_superpmi(repo_root, run_results_path)
-
+    
     # Path to the diff_short_summary.md file
     diff_summary_path = os.path.join(run_results_path, "diffAPX_details.csv")
 
