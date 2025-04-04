@@ -145,55 +145,40 @@ def run_superpmi(repo_root, destination_path):
     print(f"Running SuperPMI command: {' '.join(command)}")
     run_command(command, cwd=repo_root)
 
-def create_visual_representation(diff_summary_path):
+def create_visual_representation(diff_csv_path):
     """
-    Reads the diff_summary.json file and creates a graph comparing 'Instruction Count'
-    under 'overall' with the first value as the base and the others as differences.
+    Reads the diffAPX_details.csv file and creates a graph comparing 'Instruction Count Difference'.
     """
-    if not os.path.exists(diff_summary_path):
-        print(f"File '{diff_summary_path}' does not exist. Ensure SuperPMI has generated the file.")
+    if not os.path.exists(diff_csv_path):
+        print(f"File '{diff_csv_path}' does not exist. Ensure the file is generated correctly.")
         sys.exit(1)
 
-    print(f"Reading diff summary from '{diff_summary_path}'...")
+    print(f"Reading diff details from '{diff_csv_path}'...")
     try:
-        # Read the JSON file
-        with open(diff_summary_path, "r") as file:
-            data = json.load(file)
-        print(f"Successfully read data from '{diff_summary_path}'.")
+        # Read the CSV file
+        data = pd.read_csv(diff_csv_path)
+        print(f"Successfully read data from '{diff_csv_path}'.")
 
-        # Extract 'overall' data
-        overall_data = data.get("overall", [])
-        if not overall_data:
-            print("No 'overall' data found in the JSON file. Exiting.")
+        # Check if required columns exist
+        if 'Name' not in data.columns or 'Instruction Count Difference' not in data.columns:
+            print("Required columns ('Name', 'Instruction Count Difference') are missing in the CSV file.")
             sys.exit(1)
 
-        # Extract 'Instruction Count' values
-        instruction_counts = [entry.get("Instruction Count", 0) for entry in overall_data]
-        labels = [entry.get("Name", "Unnamed") for entry in overall_data]
+        # Extract data for plotting
+        labels = data['Name']
+        instruction_count_diff = data['Instruction Count Difference']
 
-        if not instruction_counts or len(instruction_counts) < 2:
-            print("Not enough data to create a comparison graph. Exiting.")
-            sys.exit(1)
-
-        # Use the first value as the base
-        base_value = instruction_counts[0]
-        diff_values = [count - base_value for count in instruction_counts]
-
-        print("Base Instruction Count:", base_value)
-        print("Instruction Count Differences:", diff_values)
-
-        # Create the bar graph
         print("Creating the bar graph...")
         plt.figure(figsize=(12, 8))
-        plt.bar(labels, diff_values, color="skyblue")
+        plt.bar(labels, instruction_count_diff, color="skyblue")
         plt.xlabel("Name")
         plt.ylabel("Instruction Count Difference")
-        plt.title("Instruction Count Difference Compared to Base")
+        plt.title("Instruction Count Difference")
         plt.xticks(rotation=45, fontsize=10)
         plt.tight_layout()
 
         # Save the graph as an image
-        graph_path = os.path.join(os.path.dirname(diff_summary_path), "instruction_count_comparison_graph.png")
+        graph_path = os.path.join(os.path.dirname(diff_csv_path), "instruction_count_difference_graph.png")
         plt.savefig(graph_path)
         print(f"Graph saved at '{graph_path}'.")
 
@@ -279,7 +264,7 @@ if __name__ == "__main__":
     run_superpmi(repo_root, run_results_path)
 
     # Path to the diff_short_summary.md file
-    diff_summary_path = os.path.join(repo_root, "artifacts", "spmi", "diff_short_summary.md")
+    diff_summary_path = os.path.join(run_results_path, "diffAPX_details.csv")
 
     # Create a visual representation of the diff summary
     create_visual_representation(diff_summary_path)
