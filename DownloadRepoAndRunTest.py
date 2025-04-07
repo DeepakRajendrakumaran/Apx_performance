@@ -122,7 +122,7 @@ def setup_jitutils():
         print(f"bootstrap.cmd not found in '{jitutils_path}'. Ensure the repository is cloned correctly.")
         sys.exit(1)
 
-def run_superpmi(repo_root, destination_path, csv_prefix, diff_jit_options):
+def run_superpmi(repo_root, destination_path, csv_prefix, diff_coreroot_path, diff_jit_options):
     """Run the superpmi.py command with specified csv_prefix and diff_jit_options."""
     # Delete the artifacts\spmi directory if it exists
     spmi_path = os.path.join(repo_root, "artifacts", "spmi")
@@ -133,7 +133,7 @@ def run_superpmi(repo_root, destination_path, csv_prefix, diff_jit_options):
     details_csv_path = os.path.join(destination_path, f"{csv_prefix}_{options_suffix}.csv")
 
     base_jit_path = os.path.join(destination_path, "base", "clrjit.dll")
-    diff_jit_path = os.path.join(destination_path, "diffAPX", "clrjit.dll")
+    diff_jit_path = os.path.join(diff_coreroot_path, "clrjit.dll")
     superpmi_script = os.path.join(repo_root, "src", "coreclr", "scripts", "superpmi.py")
 
     # Build the command
@@ -158,7 +158,10 @@ def run_superpmi(repo_root, destination_path, csv_prefix, diff_jit_options):
 
 def create_visual_representation(*details_csv_paths):
     """
-    Reads multiple diffAPX_details.csv files and creates a comparative graph of '% Instruction Count Difference'.
+    Reads multiple diffAPX_details.csv files and creates separate graphs for:
+    - Instruction Count Difference
+    - % Instruction Count Difference
+    - % Instruction Count Difference (Ignoring Zero diffs)
     """
     if not details_csv_paths:
         print("No CSV paths provided for visualization.")
@@ -179,12 +182,22 @@ def create_visual_representation(*details_csv_paths):
             data = pd.read_csv(csv_path)
 
             # Check if required columns exist
-            if 'Collection' not in data.columns or '% Instruction Count Difference' not in data.columns:
-                print(f"Required columns ('Collection', '% Instruction Count Difference') are missing in '{csv_path}'.")
-                sys.exit(1)
+            required_columns = [
+                'Collection',
+                'Instruction Count Difference',
+                '% Instruction Count Difference',
+                '% Instruction Count Difference (Ignoring Zero diffs)'
+            ]
+            for column in required_columns:
+                if column not in data.columns:
+                    print(f"Required column '{column}' is missing in '{csv_path}'.")
+                    sys.exit(1)
+
+            # Remove '.mch' from the Collection column
+            data['Collection'] = data['Collection'].str.replace('.mch', '', regex=False)
 
             # Add the data and label for comparison
-            data_frames.append(data[['Collection', '% Instruction Count Difference']])
+            data_frames.append(data)
             labels.append(os.path.splitext(os.path.basename(csv_path))[0])  # Use the file name (without extension) as the label
 
         except Exception as e:
@@ -201,38 +214,45 @@ def create_visual_representation(*details_csv_paths):
             suffixes=('', f'_{i}')
         )
 
-    # Plot the comparative graph
-    print("Creating the comparative bar graph...")
-    plt.figure(figsize=(16, 10))
+    # Define the columns to plot
+    columns_to_plot = [
+        'Instruction Count Difference',
+        '% Instruction Count Difference',
+        '% Instruction Count Difference (Ignoring Zero diffs)'
+    ]
 
-    # Plot each dataset
-    x = range(len(merged_data['Collection']))
-    width = 0.2  # Bar width
-    for i, label in enumerate(labels):
-        column_name = '% Instruction Count Difference' if i == 0 else f'% Instruction Count Difference_{i}'
-        plt.bar(
-            [pos + (i * width) for pos in x],
-            merged_data[column_name],
-            width=width,
-            label=label
-        )
+    # Create a graph for each column
+    for column in columns_to_plot:
+        print(f"Creating graph for column: {column}")
+        plt.figure(figsize=(16, 10))
 
-    # Configure the graph
-    plt.xlabel("Collection")
-    plt.ylabel("% Instruction Count Difference")
-    plt.title("Comparison of % Instruction Count Difference Across Collections")
-    plt.xticks([pos + (width * (len(labels) - 1) / 2) for pos in x], merged_data['Collection'].str.split('.').str[0], rotation=45, fontsize=10)
-    plt.legend()
-    plt.tight_layout()
+        # Plot each dataset
+        x = range(len(merged_data['Collection']))
+        width = 0.2  # Bar width
+        for i, label in enumerate(labels):
+            column_name = column if i == 0 else f"{column}_{i}"
+            plt.bar(
+                [pos + (i * width) for pos in x],
+                merged_data[column_name],
+                width=width,
+                label=label
+            )
 
-    # Save the graph
-    graph_path = os.path.join(os.path.dirname(details_csv_paths[0]), "comparison_instruction_count_difference.png")
-    plt.savefig(graph_path)
-    print(f"Graph saved at '{graph_path}'.")
+        # Configure the graph
+        plt.xlabel("Collection")
+        plt.ylabel(column)
+        plt.title(f"Comparison of {column} Across Collections")
+        plt.xticks([pos + (width * (len(labels) - 1) / 2) for pos in x], merged_data['Collection'], rotation=45, fontsize=10)
+        plt.legend()
+        plt.tight_layout()
 
-    # Show the graph
-    print("Displaying the graph...")
-    plt.show()
+        # Save the graph
+        graph_path = os.path.join(os.path.dirname(details_csv_paths[0]), f"{column.replace(' ', '_').lower()}_comparison.png")
+        plt.savefig(graph_path)
+        print(f"Graph for column '{column}' saved at '{graph_path}'.")
+
+        # Show the graph
+        plt.show()
 
 if __name__ == "__main__":
     print("Starting the script...")
@@ -278,64 +298,51 @@ if __name__ == "__main__":
         # Clone the repository
         clone_repo(REPO_URL, DIR_NAME)
 
-    # Switch to the main branch
-    switch_to_main(repo_root)
+    # Define branches to test
+    branches = ["8_eGPR", "16_eGPR"]  # Add your branch names here
 
-    # Construct the full paths to the build scripts
-    build_cmd_path = os.path.join(repo_root, "build.cmd")
-    tests_build_cmd_path = os.path.join(repo_root, "src", "tests", "build.cmd")
-    print(f"Build script path: {build_cmd_path}")
-    print(f"Tests build script path: {tests_build_cmd_path}")
+    # Define diff_jit_options
+    diff_jit_options_list = [
+        ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=0"],
+        ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=0"],
+        ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=1"],
+        ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=1"]
+    ]
 
+    # Iterate over branches and run superpmi for each branch and diff_jit_options
+    for branch in branches:
+        print(f"Processing branch: {branch}")
+        checkout_branch(branch, cwd=repo_root)
 
-    # Check out the specified remote branch
-    checkout_branch(BRANCH_NAME, cwd=repo_root)
+        # Run the build commands after checking out the branch
+        build_cmd_path = os.path.join(repo_root, "build.cmd")
+        tests_build_cmd_path = os.path.join(repo_root, "src", "tests", "build.cmd")
+        run_command([build_cmd_path, "clr+libs", "-rc", "checked", "-lc", "Release"], cwd=repo_root)
+        run_command([tests_build_cmd_path, "x64", "Checked", "generatelayoutonly"], cwd=repo_root)
 
-    # Run the build commands again after checking out APX_icount
-    run_command([build_cmd_path, "clr+libs", "-rc", "checked", "-lc", "Release"], cwd=repo_root)
-    run_command([tests_build_cmd_path, "x64", "Checked", "generatelayoutonly"], cwd=repo_root)
+        # Copy Core_Root to the results folder and rename it to 'base' only for the '8_eGPR' branch
+        if branch == "8_eGPR":
+            copy_core_root(repo_root, run_results_path, "base")  # Changed from base_{branch} to base
 
-    # Copy Core_Root to the results folder and rename it to 'base'
-    copy_core_root(repo_root, run_results_path, "base")
+        # Copy Core_Root to the results folder and rename it to the branch name
+        copy_core_root(repo_root, run_results_path, branch)
 
-    # Copy Core_Root to the results folder and rename it to 'diffAPX'
-    copy_core_root(repo_root, run_results_path, "diffAPX")
+        diff_coreroot_path = os.path.join(run_results_path, branch)
 
-    # Set up jitutils and run bootstrap.cmd
-    setup_jitutils()
+        # Run superpmi for each set of diff_jit_options
+        details_csv_paths = []
+        for i, diff_jit_options in enumerate(diff_jit_options_list, start=1):
+            csv_prefix = f"{branch}"
+            details_csv_path = run_superpmi(
+                repo_root,
+                run_results_path,
+                csv_prefix,
+                diff_coreroot_path,
+                diff_jit_options
+            )
+            details_csv_paths.append(details_csv_path)
 
-    # Run the SuperPMI command with 16eGPR as csv_prefix
-    diff_jit_options1 = ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=0"]
-    details_csv_path1 = run_superpmi(
-        repo_root,
-        run_results_path,
-        "16eGPR",  # Updated csv_prefix
-        diff_jit_options1
-    )
-    diff_jit_options2 = ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=0"]
-    details_csv_path2 = run_superpmi(
-        repo_root,
-        run_results_path,
-        "16eGPR",  # Updated csv_prefix
-        diff_jit_options2
-    )
-    diff_jit_options3 = ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=1"]
-    details_csv_path3 = run_superpmi(
-        repo_root,
-        run_results_path,
-        "16eGPR",  # Updated csv_prefix
-        diff_jit_options3
-    )
-
-    diff_jit_options4 = ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=1"]
-    details_csv_path4 = run_superpmi(
-        repo_root,
-        run_results_path,
-        "16eGPR",  # Updated csv_prefix
-        diff_jit_options4
-    )
-
-    # Create a visual representation of the results
-    create_visual_representation(details_csv_path1, details_csv_path2, details_csv_path3, details_csv_path4)
+        # Create a visual representation for the current branch
+        create_visual_representation(*details_csv_paths)
 
     print("Script completed successfully.")
