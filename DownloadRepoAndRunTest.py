@@ -149,7 +149,7 @@ def run_superpmi(repo_root, destination_path, diff_jit_options):
         command.extend(["-diff_jit_option", option])
 
     # Add the filter
-    # command.extend(["-filter", "libraries_tests.run"])
+    command.extend(["-filter", "libraries_tests.run"])
 
     print(f"Running SuperPMI command: {' '.join(command)}")
     run_command(command, cwd=repo_root)
@@ -175,20 +175,20 @@ def create_visual_representation(diff_csv_path):
             print("Required column ('Collection') missing in the CSV file.")
             sys.exit(1)
 
-        if 'Instruction Count Difference' not in data.columns:
+        if '% Instruction Count Difference' not in data.columns:
             print("Required column ('Instruction Count Difference') is missing in the CSV file.")
             sys.exit(1)
 
         # Extract data for plotting
         labels = data['Collection'].str.split('.').str[0]  # Truncate labels until the first period
-        instruction_count_diff = data['Instruction Count Difference']
+        instruction_count_diff = data['% Instruction Count Difference']
 
         print("Creating the bar graph...")
         plt.figure(figsize=(12, 8))
         plt.bar(labels, instruction_count_diff, color="skyblue")
         plt.xlabel("Collection")
-        plt.ylabel("Instruction Count Difference")
-        plt.title("Instruction Count Difference")
+        plt.ylabel("% Instruction Count Difference")
+        plt.title("% Instruction Count Difference")
         plt.xticks(rotation=45, fontsize=10)
         plt.tight_layout()
 
@@ -276,11 +276,11 @@ if __name__ == "__main__":
     setup_jitutils()
 
     # Run the SuperPMI command
-    diff_jit_options2 = ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=1"]
+    diff_jit_options1 = ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=1"]
     details_csv_path = run_superpmi(
         repo_root,
         run_results_path,
-        diff_jit_options
+        diff_jit_options1
     )
 
     # Use the dynamically created details_csv_path for further processing
