@@ -172,11 +172,11 @@ def create_visual_representation(diff_csv_path):
 
         # Check if required columns exist
         if 'Collection' not in data.columns:
-            print("Required column ('Name') missing in the CSV file.")
+            print("Required column ('Collection') missing in the CSV file.")
             sys.exit(1)
 
         if 'Instruction Count Difference' not in data.columns:
-            print("Required columns ('Instruction Count Difference') is missing in the CSV file.")
+            print("Required column ('Instruction Count Difference') is missing in the CSV file.")
             sys.exit(1)
 
         # Extract data for plotting
@@ -192,8 +192,8 @@ def create_visual_representation(diff_csv_path):
         plt.xticks(rotation=45, fontsize=10)
         plt.tight_layout()
 
-        # Save the graph as an image
-        graph_path = os.path.join(os.path.dirname(diff_csv_path), "instruction_count_difference_graph.png")
+        # Save the graph with the same name as the CSV file but with a .png extension
+        graph_path = diff_csv_path.replace(".csv", ".png")
         plt.savefig(graph_path)
         print(f"Graph saved at '{graph_path}'.")
 
@@ -276,7 +276,7 @@ if __name__ == "__main__":
     setup_jitutils()
 
     # Run the SuperPMI command
-    diff_jit_options = ["JitBypassApxCheck=1"]
+    diff_jit_options2 = ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=1"]
     details_csv_path = run_superpmi(
         repo_root,
         run_results_path,
