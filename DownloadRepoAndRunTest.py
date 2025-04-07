@@ -122,15 +122,15 @@ def setup_jitutils():
         print(f"bootstrap.cmd not found in '{jitutils_path}'. Ensure the repository is cloned correctly.")
         sys.exit(1)
 
-def run_superpmi(repo_root, destination_path, diff_jit_options):
-    """Run the superpmi.py command with specified diff_jit_options and dynamically name details_csv_path."""
+def run_superpmi(repo_root, destination_path, csv_prefix, diff_jit_options):
+    """Run the superpmi.py command with specified csv_prefix and diff_jit_options."""
     # Delete the artifacts\spmi directory if it exists
     spmi_path = os.path.join(repo_root, "artifacts", "spmi")
     delete_directory_if_exists(spmi_path)
 
-    # Create a unique name for the details CSV file based on diff_jit_options
+    # Create a unique name for the details CSV file based on csv_prefix and diff_jit_options
     options_suffix = "_".join(option.replace("=", "_") for option in diff_jit_options)
-    details_csv_path = os.path.join(destination_path, f"diffAPX_details_{options_suffix}.csv")
+    details_csv_path = os.path.join(destination_path, f"{csv_prefix}_{options_suffix}.csv")
 
     base_jit_path = os.path.join(destination_path, "base", "clrjit.dll")
     diff_jit_path = os.path.join(destination_path, "diffAPX", "clrjit.dll")
@@ -149,61 +149,90 @@ def run_superpmi(repo_root, destination_path, diff_jit_options):
         command.extend(["-diff_jit_option", option])
 
     # Add the filter
-    command.extend(["-filter", "libraries_tests.run"])
+    # command.extend(["-filter", "libraries_tests.run"])
 
     print(f"Running SuperPMI command: {' '.join(command)}")
     run_command(command, cwd=repo_root)
 
     return details_csv_path  # Return the dynamically created path
 
-def create_visual_representation(diff_csv_path):
+def create_visual_representation(*details_csv_paths):
     """
-    Reads the diffAPX_details.csv file and creates a graph comparing 'Instruction Count Difference'.
+    Reads multiple diffAPX_details.csv files and creates a comparative graph of '% Instruction Count Difference'.
     """
-    if not os.path.exists(diff_csv_path):
-        print(f"File '{diff_csv_path}' does not exist. Ensure the file is generated correctly.")
+    if not details_csv_paths:
+        print("No CSV paths provided for visualization.")
         sys.exit(1)
 
-    print(f"Reading diff details from '{diff_csv_path}'...")
-    try:
-        # Read the CSV file
-        data = pd.read_csv(diff_csv_path)
-        print(f"Successfully read data from '{diff_csv_path}'.")
+    data_frames = []
+    labels = []
 
-        # Check if required columns exist
-        if 'Collection' not in data.columns:
-            print("Required column ('Collection') missing in the CSV file.")
+    # Read and process each CSV file
+    for csv_path in details_csv_paths:
+        if not os.path.exists(csv_path):
+            print(f"File '{csv_path}' does not exist. Ensure the file is generated correctly.")
             sys.exit(1)
 
-        if '% Instruction Count Difference' not in data.columns:
-            print("Required column ('Instruction Count Difference') is missing in the CSV file.")
+        print(f"Reading diff details from '{csv_path}'...")
+        try:
+            # Read the CSV file
+            data = pd.read_csv(csv_path)
+
+            # Check if required columns exist
+            if 'Collection' not in data.columns or '% Instruction Count Difference' not in data.columns:
+                print(f"Required columns ('Collection', '% Instruction Count Difference') are missing in '{csv_path}'.")
+                sys.exit(1)
+
+            # Add the data and label for comparison
+            data_frames.append(data[['Collection', '% Instruction Count Difference']])
+            labels.append(os.path.splitext(os.path.basename(csv_path))[0])  # Use the file name (without extension) as the label
+
+        except Exception as e:
+            print(f"Failed to read or process '{csv_path}': {e}")
             sys.exit(1)
 
-        # Extract data for plotting
-        labels = data['Collection'].str.split('.').str[0]  # Truncate labels until the first period
-        instruction_count_diff = data['% Instruction Count Difference']
+    # Merge all data frames on the 'Collection' column
+    merged_data = data_frames[0]
+    for i, df in enumerate(data_frames[1:], start=1):
+        merged_data = pd.merge(
+            merged_data,
+            df,
+            on='Collection',
+            suffixes=('', f'_{i}')
+        )
 
-        print("Creating the bar graph...")
-        plt.figure(figsize=(12, 8))
-        plt.bar(labels, instruction_count_diff, color="skyblue")
-        plt.xlabel("Collection")
-        plt.ylabel("% Instruction Count Difference")
-        plt.title("% Instruction Count Difference")
-        plt.xticks(rotation=45, fontsize=10)
-        plt.tight_layout()
+    # Plot the comparative graph
+    print("Creating the comparative bar graph...")
+    plt.figure(figsize=(16, 10))
 
-        # Save the graph with the same name as the CSV file but with a .png extension
-        graph_path = diff_csv_path.replace(".csv", ".png")
-        plt.savefig(graph_path)
-        print(f"Graph saved at '{graph_path}'.")
+    # Plot each dataset
+    x = range(len(merged_data['Collection']))
+    width = 0.2  # Bar width
+    for i, label in enumerate(labels):
+        column_name = '% Instruction Count Difference' if i == 0 else f'% Instruction Count Difference_{i}'
+        plt.bar(
+            [pos + (i * width) for pos in x],
+            merged_data[column_name],
+            width=width,
+            label=label
+        )
 
-        # Show the graph
-        print("Displaying the graph...")
-        plt.show()
+    # Configure the graph
+    plt.xlabel("Collection")
+    plt.ylabel("% Instruction Count Difference")
+    plt.title("Comparison of % Instruction Count Difference Across Collections")
+    plt.xticks([pos + (width * (len(labels) - 1) / 2) for pos in x], merged_data['Collection'].str.split('.').str[0], rotation=45, fontsize=10)
+    plt.legend()
+    plt.tight_layout()
 
-    except Exception as e:
-        print(f"Failed to create visual representation: {e}")
-        sys.exit(1)
+    # Save the graph
+    graph_path = os.path.join(os.path.dirname(details_csv_paths[0]), "comparison_instruction_count_difference.png")
+    plt.savefig(graph_path)
+    print(f"Graph saved at '{graph_path}'.")
+
+    # Show the graph
+    print("Displaying the graph...")
+    plt.show()
 
 if __name__ == "__main__":
     print("Starting the script...")
@@ -275,18 +304,38 @@ if __name__ == "__main__":
     # Set up jitutils and run bootstrap.cmd
     setup_jitutils()
 
-    # Run the SuperPMI command
-    diff_jit_options1 = ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=1"]
-    details_csv_path = run_superpmi(
+    # Run the SuperPMI command with 16eGPR as csv_prefix
+    diff_jit_options1 = ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=0"]
+    details_csv_path1 = run_superpmi(
         repo_root,
         run_results_path,
+        "16eGPR",  # Updated csv_prefix
         diff_jit_options1
     )
+    diff_jit_options2 = ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=0"]
+    details_csv_path2 = run_superpmi(
+        repo_root,
+        run_results_path,
+        "16eGPR",  # Updated csv_prefix
+        diff_jit_options2
+    )
+    diff_jit_options3 = ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=1"]
+    details_csv_path3 = run_superpmi(
+        repo_root,
+        run_results_path,
+        "16eGPR",  # Updated csv_prefix
+        diff_jit_options3
+    )
 
-    # Use the dynamically created details_csv_path for further processing
-    create_visual_representation(details_csv_path)
+    diff_jit_options4 = ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=1"]
+    details_csv_path4 = run_superpmi(
+        repo_root,
+        run_results_path,
+        "16eGPR",  # Updated csv_prefix
+        diff_jit_options4
+    )
 
-
-    #diff_jit_options2 = ["JitBypassApxCheck=1", "AnotherOption=2"]
+    # Create a visual representation of the results
+    create_visual_representation(details_csv_path1, details_csv_path2, details_csv_path3, details_csv_path4)
 
     print("Script completed successfully.")
