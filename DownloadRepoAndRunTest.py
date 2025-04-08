@@ -154,6 +154,36 @@ def run_superpmi(repo_root, destination_path, csv_prefix, diff_coreroot_path, di
     print(f"Running SuperPMI command: {' '.join(command)}")
     run_command(command, cwd=repo_root)
 
+    # Copy everything except the 'mch' folder from spmi_path to a new folder in destination_path
+    output_folder_name = os.path.splitext(os.path.basename(details_csv_path))[0]  # Remove .md or .csv extension
+    output_folder_path = os.path.join(destination_path, output_folder_name)
+
+    if not os.path.exists(spmi_path):
+        print(f"SPMI path '{spmi_path}' does not exist. Ensure the SuperPMI command ran successfully.")
+        sys.exit(1)
+
+    print(f"Copying contents of '{spmi_path}' (excluding 'mch') to '{output_folder_path}'...")
+    try:
+        os.makedirs(output_folder_path, exist_ok=True)
+        for item in os.listdir(spmi_path):
+            item_path = os.path.join(spmi_path, item)
+            if os.path.isdir(item_path) and item.lower() == "mch":
+                continue  # Skip the 'mch' folder
+            shutil.move(item_path, os.path.join(output_folder_path, item))
+        print(f"Copied contents to '{output_folder_path}' successfully.")
+    except Exception as e:
+        print(f"Failed to copy contents of '{spmi_path}' to '{output_folder_path}': {e}")
+        sys.exit(1)
+
+    # Delete the contents of spmi_path
+    print(f"Deleting contents of '{spmi_path}'...")
+    try:
+        delete_directory_if_exists(spmi_path)
+        print(f"Deleted contents of '{spmi_path}' successfully.")
+    except Exception as e:
+        print(f"Failed to delete contents of '{spmi_path}': {e}")
+        sys.exit(1)
+
     return details_csv_path  # Return the dynamically created path
 
 def create_visual_representation(*details_csv_paths):
@@ -309,6 +339,9 @@ if __name__ == "__main__":
         ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=1"]
     ]
 
+    # Collect all CSV paths for both branches
+    all_details_csv_paths = []
+
     # Iterate over branches and run superpmi for each branch and diff_jit_options
     for branch in branches:
         print(f"Processing branch: {branch}")
@@ -330,8 +363,7 @@ if __name__ == "__main__":
         diff_coreroot_path = os.path.join(run_results_path, branch)
 
         # Run superpmi for each set of diff_jit_options
-        details_csv_paths = []
-        for i, diff_jit_options in enumerate(diff_jit_options_list, start=1):
+        for diff_jit_options in diff_jit_options_list:
             csv_prefix = f"{branch}"
             details_csv_path = run_superpmi(
                 repo_root,
@@ -340,9 +372,9 @@ if __name__ == "__main__":
                 diff_coreroot_path,
                 diff_jit_options
             )
-            details_csv_paths.append(details_csv_path)
+            all_details_csv_paths.append(details_csv_path)
 
-        # Create a visual representation for the current branch
-        create_visual_representation(*details_csv_paths)
+    # Create a visual representation for all cases across both branches
+    create_visual_representation(*all_details_csv_paths)
 
     print("Script completed successfully.")
