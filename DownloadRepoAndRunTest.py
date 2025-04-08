@@ -197,6 +197,15 @@ def create_visual_representation(*details_csv_paths):
         print("No CSV paths provided for visualization.")
         sys.exit(1)
 
+    # Mapping of CSV prefixes to human-readable names
+    label_mapping = {
+        "8_eGPR_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_0": "8 eGPR, NDD off, CCMP Off",
+        "8_eGPR_JitBypassApxCheck_1_EnableApxNDD_1_EnableApxConditionalChaining_0": "8 eGPR, NDD on, CCMP Off",
+        "8_eGPR_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_1": "8 eGPR, NDD off, CCMP On",
+        "8_eGPR_JitBypassApxCheck_1_EnableApxNDD_1_EnableApxConditionalChaining_1": "8 eGPR, NDD on, CCMP On",
+        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_0": "16 eGPR, NDD off, CCMP Off"
+    }
+
     data_frames = []
     labels = []
 
@@ -223,12 +232,15 @@ def create_visual_representation(*details_csv_paths):
                     print(f"Required column '{column}' is missing in '{csv_path}'.")
                     sys.exit(1)
 
-            # Remove '.mch' from the Collection column
+            # Remove '.mch' and '.windows' from the Collection column
             data['Collection'] = data['Collection'].str.replace('.mch', '', regex=False)
+            data['Collection'] = data['Collection'].str.replace(r'\.windows.*', '', regex=True)
 
             # Add the data and label for comparison
+            csv_name = os.path.splitext(os.path.basename(csv_path))[0]
+            human_readable_label = label_mapping.get(csv_name, csv_name)  # Use mapping or fallback to the original name
             data_frames.append(data)
-            labels.append(os.path.splitext(os.path.basename(csv_path))[0])  # Use the file name (without extension) as the label
+            labels.append(human_readable_label)
 
         except Exception as e:
             print(f"Failed to read or process '{csv_path}': {e}")
@@ -251,6 +263,13 @@ def create_visual_representation(*details_csv_paths):
         '% Instruction Count Difference (Ignoring Zero diffs)'
     ]
 
+    # Add explanations for each graph
+    explanations = {
+        'Instruction Count Difference': r"$\bf{Instruction\ Count\ Difference}$ = $\bf{(Diff\ Instr\ Count\ -\ Base\ Instr\ Count)}$",
+        '% Instruction Count Difference': r"$\bf{\% Instruction\ Count\ Difference}$ = $\bf{\frac{(Diff\ Instr\ Count\ -\ Base\ Instr\ Count)\ \times\ 100}{Base\ Instr\ Count}}$",
+        '% Instruction Count Difference (Ignoring Zero diffs)': r"$\bf{\% Instruction\ Count\ Difference\ (Ignoring\ Zero\ Diffs)}$ = $\bf{\frac{(Diff\ Instr\ Count\ -\ Base\ Instr\ Count)\ \times\ 100}{Base\ Instr\ Count}}$ only for methods with diff"
+    }
+
     # Create a graph for each column
     for column in columns_to_plot:
         print(f"Creating graph for column: {column}")
@@ -259,9 +278,10 @@ def create_visual_representation(*details_csv_paths):
         # Plot each dataset
         x = range(len(merged_data['Collection']))
         width = 0.2  # Bar width
+        gap = 0.5  # Gap between collections
         for i, label in enumerate(labels):
             column_name = column if i == 0 else f"{column}_{i}"
-            bar_positions = [pos + (i * width) for pos in x]
+            bar_positions = [pos + (i * width) + (gap * pos) for pos in x]
             bar_values = merged_data[column_name]
             plt.bar(
                 bar_positions,
@@ -270,24 +290,44 @@ def create_visual_representation(*details_csv_paths):
                 label=label
             )
 
-            # Add values inside the bars
+            # Add values above the bars
             for pos, value in zip(bar_positions, bar_values):
-                plt.text(pos, value, f"{value:.2f}", ha='center', va='bottom' if value >= 0 else 'top', fontsize=8)
+                plt.text(
+                    pos, 
+                    value + (0.02 * (value) if value != 0 else 0.1),  # Position slightly above the bar
+                    f"{value:.2f}", 
+                    ha='center', 
+                    va='bottom', 
+                    fontsize=8
+                )
 
         # Configure the graph
         plt.xlabel("Collection")
         plt.ylabel(column)
-        plt.title(f"Comparison of {column} Across Collections")
-        plt.xticks([pos + (width * (len(labels) - 1) / 2) for pos in x], merged_data['Collection'], rotation=45, fontsize=10)
+        plt.title(
+            f"{column}",
+            fontweight="bold",  # Make the header bold
+            fontsize=16         # Use a larger font size for the header
+        )
+        plt.xticks(
+            [pos + (width * (len(labels) - 1) / 2) + (gap * pos) for pos in x],
+            merged_data['Collection'],
+            rotation=45,
+            fontsize=10
+        )
         plt.legend()
         plt.tight_layout()
+
+        # Add explanation text to the graph
+        explanation = explanations.get(column, "")
+        plt.figtext(0.5, -0.05, explanation, wrap=True, horizontalalignment='center', fontsize=10)
 
         # Invert the y-axis to flip the graph
         plt.gca().invert_yaxis()
 
         # Save the graph
         graph_path = os.path.join(os.path.dirname(details_csv_paths[0]), f"{column.replace(' ', '_').lower()}_comparison.png")
-        plt.savefig(graph_path)
+        plt.savefig(graph_path, bbox_inches="tight")
         print(f"Graph for column '{column}' saved at '{graph_path}'.")
 
         # Show the graph
