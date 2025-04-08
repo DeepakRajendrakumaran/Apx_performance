@@ -261,12 +261,18 @@ def create_visual_representation(*details_csv_paths):
         width = 0.2  # Bar width
         for i, label in enumerate(labels):
             column_name = column if i == 0 else f"{column}_{i}"
+            bar_positions = [pos + (i * width) for pos in x]
+            bar_values = merged_data[column_name]
             plt.bar(
-                [pos + (i * width) for pos in x],
-                merged_data[column_name],
+                bar_positions,
+                bar_values,
                 width=width,
                 label=label
             )
+
+            # Add values inside the bars
+            for pos, value in zip(bar_positions, bar_values):
+                plt.text(pos, value, f"{value:.2f}", ha='center', va='bottom' if value >= 0 else 'top', fontsize=8)
 
         # Configure the graph
         plt.xlabel("Collection")
@@ -276,13 +282,16 @@ def create_visual_representation(*details_csv_paths):
         plt.legend()
         plt.tight_layout()
 
+        # Invert the y-axis to flip the graph
+        plt.gca().invert_yaxis()
+
         # Save the graph
         graph_path = os.path.join(os.path.dirname(details_csv_paths[0]), f"{column.replace(' ', '_').lower()}_comparison.png")
         plt.savefig(graph_path)
         print(f"Graph for column '{column}' saved at '{graph_path}'.")
 
         # Show the graph
-        plt.show()
+        # plt.show()
 
 if __name__ == "__main__":
     print("Starting the script...")
@@ -331,18 +340,21 @@ if __name__ == "__main__":
     # Define branches to test
     branches = ["8_eGPR", "16_eGPR"]  # Add your branch names here
 
-    # Define diff_jit_options
-    diff_jit_options_list = [
+    # Define diff_jit_options for each branch
+    diff_jit_options_8_eGPR = [
         ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=0"],
         ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=0"],
         ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=1"],
         ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=1"]
     ]
+    diff_jit_options_16_eGPR = [
+        ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=0"]
+    ]
 
     # Collect all CSV paths for both branches
     all_details_csv_paths = []
 
-    # Iterate over branches and run superpmi for each branch and diff_jit_options
+    # Iterate over branches and run superpmi for each branch
     for branch in branches:
         print(f"Processing branch: {branch}")
         checkout_branch(branch, cwd=repo_root)
@@ -355,24 +367,36 @@ if __name__ == "__main__":
 
         # Copy Core_Root to the results folder and rename it to 'base' only for the '8_eGPR' branch
         if branch == "8_eGPR":
-            copy_core_root(repo_root, run_results_path, "base")  # Changed from base_{branch} to base
+            copy_core_root(repo_root, run_results_path, "base")
 
         # Copy Core_Root to the results folder and rename it to the branch name
         copy_core_root(repo_root, run_results_path, branch)
 
         diff_coreroot_path = os.path.join(run_results_path, branch)
 
-        # Run superpmi for each set of diff_jit_options
-        for diff_jit_options in diff_jit_options_list:
-            csv_prefix = f"{branch}"
-            details_csv_path = run_superpmi(
-                repo_root,
-                run_results_path,
-                csv_prefix,
-                diff_coreroot_path,
-                diff_jit_options
-            )
-            all_details_csv_paths.append(details_csv_path)
+        # Run superpmi for the specific configurations
+        if branch == "8_eGPR":
+            for diff_jit_options in diff_jit_options_8_eGPR:
+                csv_prefix = f"{branch}"
+                details_csv_path = run_superpmi(
+                    repo_root,
+                    run_results_path,
+                    csv_prefix,
+                    diff_coreroot_path,
+                    diff_jit_options
+                )
+                all_details_csv_paths.append(details_csv_path)
+        elif branch == "16_eGPR":
+            for diff_jit_options in diff_jit_options_16_eGPR:
+                csv_prefix = f"{branch}"
+                details_csv_path = run_superpmi(
+                    repo_root,
+                    run_results_path,
+                    csv_prefix,
+                    diff_coreroot_path,
+                    diff_jit_options
+                )
+                all_details_csv_paths.append(details_csv_path)
 
     # Create a visual representation for all cases across both branches
     create_visual_representation(*all_details_csv_paths)
