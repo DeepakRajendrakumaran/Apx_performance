@@ -1,74 +1,80 @@
-# Apx Performance Automation
+# SuperPMI Automation Script
 
-This repository contains a Python script to automate the process of cloning a runtime repository, building it, running SuperPMI, and generating visual representations of performance differences.
+This script automates the process of running SuperPMI (Super Performance Measurement Infrastructure) to compare JIT (Just-In-Time) compiler performance across different configurations and branches. It also generates visual representations of the results for easier analysis.
 
 ## Features
 
-- Clones the runtime repository and checks out a specific branch.
-- Builds the runtime and tests.
-- Runs SuperPMI to generate performance comparison data.
-- Creates a graph visualizing "Diff Instruction Count" by method.
+1. **Repository Management**:
+   - Clones the `runtime` repository from GitHub.
+   - Checks out specific branches for testing.
+   - Deletes and recreates branches locally if needed.
+
+2. **JIT Configuration Testing**:
+   - Runs SuperPMI with various JIT configurations to compare performance.
+   - Supports multiple configurations for both base and diff JIT options.
+   - Automatically generates unique CSV files for each configuration.
+
+3. **Graph Generation**:
+   - Reads the generated CSV files and creates bar graphs for:
+     - **Instruction Count Difference**
+     - **% Instruction Count Difference**
+     - **% Instruction Count Difference (Ignoring Zero Diffs)**
+   - Highlights key equations in the graph headers and explanations.
+   - Displays values above the bars for better readability.
+
+4. **File Management**:
+   - Deletes and recreates directories as needed.
+   - Copies the `Core_Root` directory for both base and diff configurations.
+   - Moves SuperPMI output files to organized folders.
+
+## How It Works
+
+### 1. **Setup**
+   - Clones the `runtime` repository from [GitHub](https://github.com/dotnet/runtime).
+   - Clones the `jitutils` repository and runs `bootstrap.cmd` to set up the environment.
+
+### 2. **Branch Processing**
+   - Switches to the specified branch (e.g., `16_eGPR`) and builds the runtime and tests.
+   - Copies the `Core_Root` directory for both base and diff configurations.
+
+### 3. **SuperPMI Execution**
+   - Runs the `superpmi.py` script with the following configurations:
+     - **Base JIT Options**:
+       - `JitBypassApxCheck=0`
+       - `EnableApxNDD=0`
+       - `EnableApxConditionalChaining=0`
+     - **Diff JIT Options**:
+       - `JitBypassApxCheck=1`, `EnableApxNDD=0`, `EnableApxConditionalChaining=0`
+       - `JitBypassApxCheck=1`, `EnableApxNDD=1`, `EnableApxConditionalChaining=0`
+       - `JitBypassApxCheck=1`, `EnableApxNDD=0`, `EnableApxConditionalChaining=1`
+       - `JitBypassApxCheck=1`, `EnableApxNDD=1`, `EnableApxConditionalChaining=1`
+   - Generates detailed CSV files for each configuration.
+
+### 4. **Graph Generation**
+   - Reads the generated CSV files and creates bar graphs for the following metrics:
+     - **Instruction Count Difference**: `(Diff Instr Count - Base Instr Count)`
+     - **% Instruction Count Difference**: `((Diff Instr Count - Base Instr Count) * 100) / Base Instr Count`
+     - **% Instruction Count Difference (Ignoring Zero Diffs)**: `((Diff Instr Count - Base Instr Count) * 100) / Base Instr Count for only methods with diff`
+   - Adds explanations and highlights equations in the graph headers.
+   - Saves the graphs as PNG files.
 
 ## Prerequisites
 
-Before running the script, ensure the following dependencies are installed:
-
-### System Requirements
-
-1. **Python 3.7 or higher**:
-   - Download and install Python from [python.org](https://www.python.org/downloads/).
-   - Ensure Python is added to your system's `PATH`.
+1. **Python**:
+   - Ensure Python is installed and available in your system's PATH.
 
 2. **Git**:
-   - Download and install Git from [git-scm.com](https://git-scm.com/).
+   - Ensure Git is installed and available in your system's PATH.
 
-3. **C++ Build Tools**:
-   - Install the required build tools for your platform:
-     - On Windows: Install the "Build Tools for Visual Studio" from [Microsoft](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
-     - On Linux: Install `build-essential` and other required packages.
-     - On macOS: Install Xcode Command Line Tools.
+3. **Dependencies**:
+   - The script uses the following Python libraries:
+     - `subprocess`
+     - `os`
+     - `shutil`
+     - `matplotlib`
+     - `pandas`
+     - `json`
 
-### Python Dependencies
-
-The script requires the following Python libraries:
-
-- `matplotlib`: For generating graphs.
-- `pandas`: For processing tabular data.
-
-Install these dependencies using `pip`:
-
-`pip install matplotlib pandas`
-
-Repository Structure
-DownloadRepoAndRunTest.py: The main script to automate the process.
-runResults/: Folder where results (base and diffAPX) and graphs are stored.
-runtime/: The cloned runtime repository.
-Usage
-Clone this repository:
-
-Run the script:
-
-The script will:
-
-Clone the runtime repository.
-Build the runtime and tests.
-Run SuperPMI to generate `diff_short_summary.md`.
-Create a graph showing "Diff Instruction Count" by method.
-Results:
-
-The runResults folder will contain:
-`base/`: The baseline build.
-`diffAPX/`: The modified build.
-`diff_instruction_count_graph.png`: A graph visualizing the results.
-Troubleshooting
-pip is not recognized
-Ensure Python and Pip are added to your system's PATH. Refer to the Python installation guide.
-
-`SSL: CERTIFICATE_VERIFY_FAILED`
-Run the following command to bypass SSL verification:
-
-Missing Build Tools
-Ensure you have installed the required build tools for your platform (e.g., Visual Studio Build Tools on Windows).
-
-License
-This project is licensed under the MIT License. See the LICENSE file for details
+   Install the required libraries using:
+   ```bash
+   pip install matplotlib pandas
