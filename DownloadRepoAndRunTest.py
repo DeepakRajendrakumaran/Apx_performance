@@ -122,7 +122,7 @@ def setup_jitutils():
         print(f"bootstrap.cmd not found in '{jitutils_path}'. Ensure the repository is cloned correctly.")
         sys.exit(1)
 
-def run_superpmi(repo_root, destination_path, csv_prefix, diff_coreroot_path, diff_jit_options):
+def run_superpmi(repo_root, destination_path, csv_prefix, diff_coreroot_path, diff_jit_options, base_jit_options):
     """Run the superpmi.py command with specified csv_prefix and diff_jit_options."""
     # Delete the artifacts\spmi directory if it exists
     spmi_path = os.path.join(repo_root, "artifacts", "spmi")
@@ -143,6 +143,10 @@ def run_superpmi(repo_root, destination_path, csv_prefix, diff_coreroot_path, di
         "-base_jit_path", base_jit_path,
         "-diff_jit_path", diff_jit_path,
     ]
+
+    # Add all diff_jit_options to the command
+    for option in base_jit_options:
+        command.extend(["-base_jit_option", option])
 
     # Add all diff_jit_options to the command
     for option in diff_jit_options:
@@ -199,11 +203,11 @@ def create_visual_representation(*details_csv_paths):
 
     # Mapping of CSV prefixes to human-readable names
     label_mapping = {
-        "8_eGPR_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_0": "8 eGPR, NDD off, CCMP Off",
-        "8_eGPR_JitBypassApxCheck_1_EnableApxNDD_1_EnableApxConditionalChaining_0": "8 eGPR, NDD on, CCMP Off",
-        "8_eGPR_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_1": "8 eGPR, NDD off, CCMP On",
-        "8_eGPR_JitBypassApxCheck_1_EnableApxNDD_1_EnableApxConditionalChaining_1": "8 eGPR, NDD on, CCMP On",
-        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_0": "16 eGPR, NDD off, CCMP Off"
+        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_0": "8 eGPR, NDD off, CCMP Off",
+        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_1_EnableApxConditionalChaining_0": "8 eGPR, NDD on, CCMP Off",
+        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_1": "8 eGPR, NDD off, CCMP On",
+        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_1_EnableApxConditionalChaining_1": "8 eGPR, NDD on, CCMP On",
+        "future_branch_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_0": "16 eGPR, NDD off, CCMP Off"
     }
 
     data_frames = []
@@ -378,17 +382,20 @@ if __name__ == "__main__":
         clone_repo(REPO_URL, DIR_NAME)
 
     # Define branches to test
-    branches = ["8_eGPR", "16_eGPR"]  # Add your branch names here
+    branches = ["16_eGPR"]  # Add your branch names here
 
     # Define diff_jit_options for each branch
-    diff_jit_options_8_eGPR = [
+    diff_jit_options_16_eGPR = [
         ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=0"],
         ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=0"],
         ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=1"],
         ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=1"]
     ]
-    diff_jit_options_16_eGPR = [
+    diff_jit_options_future_branch = [
         ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=0"]
+    ]
+    base_jit_options = [
+        ["JitBypassApxCheck=0", "EnableApxNDD=0", "EnableApxConditionalChaining=0"]
     ]
 
     # Collect all CSV paths for both branches
@@ -405,8 +412,8 @@ if __name__ == "__main__":
         run_command([build_cmd_path, "clr+libs", "-rc", "checked", "-lc", "Release"], cwd=repo_root)
         run_command([tests_build_cmd_path, "x64", "Checked", "generatelayoutonly"], cwd=repo_root)
 
-        # Copy Core_Root to the results folder and rename it to 'base' only for the '8_eGPR' branch
-        if branch == "8_eGPR":
+        # Copy Core_Root to the results folder and rename it to 'base' only for the '16_eGPR' branch
+        if branch == "16_eGPR":
             copy_core_root(repo_root, run_results_path, "base")
 
         # Copy Core_Root to the results folder and rename it to the branch name
@@ -415,18 +422,7 @@ if __name__ == "__main__":
         diff_coreroot_path = os.path.join(run_results_path, branch)
 
         # Run superpmi for the specific configurations
-        if branch == "8_eGPR":
-            for diff_jit_options in diff_jit_options_8_eGPR:
-                csv_prefix = f"{branch}"
-                details_csv_path = run_superpmi(
-                    repo_root,
-                    run_results_path,
-                    csv_prefix,
-                    diff_coreroot_path,
-                    diff_jit_options
-                )
-                all_details_csv_paths.append(details_csv_path)
-        elif branch == "16_eGPR":
+        if branch == "16_eGPR":
             for diff_jit_options in diff_jit_options_16_eGPR:
                 csv_prefix = f"{branch}"
                 details_csv_path = run_superpmi(
@@ -434,7 +430,20 @@ if __name__ == "__main__":
                     run_results_path,
                     csv_prefix,
                     diff_coreroot_path,
-                    diff_jit_options
+                    diff_jit_options,
+                    base_jit_options
+                )
+                all_details_csv_paths.append(details_csv_path)
+        elif branch == "future_branch":
+            for diff_jit_options in diff_jit_options_future_branch:
+                csv_prefix = f"{branch}"
+                details_csv_path = run_superpmi(
+                    repo_root,
+                    run_results_path,
+                    csv_prefix,
+                    diff_coreroot_path,
+                    diff_jit_options,
+                    base_jit_options
                 )
                 all_details_csv_paths.append(details_csv_path)
 
