@@ -394,8 +394,11 @@ if __name__ == "__main__":
     diff_jit_options_future_branch = [
         ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=0"]
     ]
+    # Define base_jit_options as a flat list
     base_jit_options = [
-        ["JitBypassApxCheck=0", "EnableApxNDD=0", "EnableApxConditionalChaining=0"]
+        "JitBypassApxCheck=0",
+        "EnableApxNDD=0",
+        "EnableApxConditionalChaining=0"
     ]
 
     # Collect all CSV paths for both branches
