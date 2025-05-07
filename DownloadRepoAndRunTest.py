@@ -203,11 +203,11 @@ def create_visual_representation(*details_csv_paths):
 
     # Mapping of CSV prefixes to human-readable names
     label_mapping = {
-        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_0": "8 eGPR, NDD off, CCMP Off",
-        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_1_EnableApxConditionalChaining_0": "8 eGPR, NDD on, CCMP Off",
-        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_1": "8 eGPR, NDD off, CCMP On",
-        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_1_EnableApxConditionalChaining_1": "8 eGPR, NDD on, CCMP On",
-        "future_branch_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_0": "16 eGPR, NDD off, CCMP Off"
+        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_0": "16 eGPR, NDD off, CCMP Off",
+        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_1_EnableApxConditionalChaining_0": "16 eGPR, NDD on, CCMP Off",
+        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_1": "16 eGPR, NDD off, CCMP On",
+        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_1_EnableApxConditionalChaining_1": "16 eGPR, NDD on, CCMP On",
+        "future_branch_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_0": "future, NDD off, CCMP Off"
     }
 
     data_frames = []
