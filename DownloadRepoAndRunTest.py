@@ -5,7 +5,7 @@ import shutil  # Import shutil for file operations
 import matplotlib.pyplot as plt  # Import matplotlib for graphing
 import pandas as pd  # Import pandas for data processing
 import json  # Import json for reading JSON files
-
+import re
 
 #python C:\deepak\Apx_performance\runtime\src\coreclr\scripts\superpmi.py asmdiffs -details C:\deepak\Apx_performance\runResults\diffAPX_details.csv -base_jit_path C:\deepak\Apx_performance\runResults\base\clrjit.dll -diff_jit_path C:\deepak\Apx_performance\runResults\diffAPX\clrjit.dll -diff_jit_option JitBypassApxCheck=1
 # Define the repository URL and the desired directory name
@@ -190,6 +190,27 @@ def run_superpmi(repo_root, destination_path, csv_prefix, diff_coreroot_path, di
 
     return details_csv_path  # Return the dynamically created path
 
+def get_human_readable_label(csv_name):
+    # Example: 16_eGPR_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_1_EnableApxPPX_0
+    pattern = (
+        r'(?P<branch>[^_]+_[^_]+)_'
+        r'JitBypassApxCheck_(?P<JitBypassApxCheck>[01])_'
+        r'EnableApxNDD_(?P<EnableApxNDD>[01])_'
+        r'EnableApxConditionalChaining_(?P<EnableApxConditionalChaining>[01])_'
+        r'EnableApxPPX_(?P<EnableApxPPX>[01])'
+    )
+    match = re.match(pattern, csv_name)
+    if not match:
+        return csv_name  # fallback
+
+    branch = match.group('branch').replace('_', ' ')
+    ndd = "NDD on" if match.group('EnableApxNDD') == "1" else "NDD off"
+    ccmp = "CCMP On" if match.group('EnableApxConditionalChaining') == "1" else "CCMP Off"
+    ppx = "PPX On" if match.group('EnableApxPPX') == "1" else "PPX Off"
+    # Optionally, include JitBypassApxCheck if you want
+    # jitbypass = "JitBypassApxCheck=1" if match.group('JitBypassApxCheck') == "1" else "JitBypassApxCheck=0"
+    return f"{branch}, {ndd}, {ccmp}, {ppx}"
+
 def create_visual_representation(*details_csv_paths):
     """
     Reads multiple diffAPX_details.csv files and creates separate graphs for:
@@ -200,15 +221,6 @@ def create_visual_representation(*details_csv_paths):
     if not details_csv_paths:
         print("No CSV paths provided for visualization.")
         sys.exit(1)
-
-    # Mapping of CSV prefixes to human-readable names
-    label_mapping = {
-        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_0": "16 eGPR, NDD off, CCMP Off",
-        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_1_EnableApxConditionalChaining_0": "16 eGPR, NDD on, CCMP Off",
-        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_1": "16 eGPR, NDD off, CCMP On",
-        "16_eGPR_JitBypassApxCheck_1_EnableApxNDD_1_EnableApxConditionalChaining_1": "16 eGPR, NDD on, CCMP On",
-        "future_branch_JitBypassApxCheck_1_EnableApxNDD_0_EnableApxConditionalChaining_0": "future, NDD off, CCMP Off"
-    }
 
     data_frames = []
     labels = []
@@ -240,9 +252,9 @@ def create_visual_representation(*details_csv_paths):
             data['Collection'] = data['Collection'].str.replace('.mch', '', regex=False)
             data['Collection'] = data['Collection'].str.replace(r'\.windows.*', '', regex=True)
 
-            # Add the data and label for comparison
+            # Dynamically generate the label
             csv_name = os.path.splitext(os.path.basename(csv_path))[0]
-            human_readable_label = label_mapping.get(csv_name, csv_name)  # Use mapping or fallback to the original name
+            human_readable_label = get_human_readable_label(csv_name)
             data_frames.append(data)
             labels.append(human_readable_label)
 
@@ -386,19 +398,20 @@ if __name__ == "__main__":
 
     # Define diff_jit_options for each branch
     diff_jit_options_16_eGPR = [
-        ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=0"],
-        ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=0"],
-        ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=1"],
-        ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=1"]
+        ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=0", "EnableApxPPX=0"],
+        #["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=0", "EnableApxPPX=0"],
+        ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=0", "EnableApxPPX=1"],
+        ["JitBypassApxCheck=1", "EnableApxNDD=1", "EnableApxConditionalChaining=1", "EnableApxPPX=1"]
     ]
     diff_jit_options_future_branch = [
-        ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=0"]
+        ["JitBypassApxCheck=1", "EnableApxNDD=0", "EnableApxConditionalChaining=0", "EnableApxPPX=0"]
     ]
     # Define base_jit_options as a flat list
     base_jit_options = [
         "JitBypassApxCheck=0",
         "EnableApxNDD=0",
-        "EnableApxConditionalChaining=0"
+        "EnableApxConditionalChaining=0",
+        "EnableApxPPX=0"
     ]
 
     # Collect all CSV paths for both branches
